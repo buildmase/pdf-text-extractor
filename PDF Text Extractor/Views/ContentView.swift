@@ -39,7 +39,7 @@ struct ContentView: View {
                         .frame(height: 200)
                         .overlay(
                             VStack(spacing: 15) {
-                                Image(systemName: isDragOver ? "doc.badge.plus.fill" : "doc.badge.plus")
+                                Image(systemName: isDragOver ? "doc.badge.plus" : "doc.badge.plus")
                                     .font(.system(size: 50))
                                     .foregroundColor(isDragOver ? .green : .blue)
                                     .animation(.easeInOut(duration: 0.2), value: isDragOver)
