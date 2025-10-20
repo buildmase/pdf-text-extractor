@@ -7,6 +7,7 @@
 
 import Foundation
 import PDFKit
+import Combine
 
 class PDFExtractorService: ObservableObject {
     @Published var isProcessing = false
