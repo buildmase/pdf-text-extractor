@@ -169,14 +169,14 @@ struct ContentView: View {
                             .background(Color.gray.opacity(0.1))
                             .cornerRadius(8)
                     }
-                    .frame(maxHeight: 300)
+                    .frame(maxHeight: 500)
                 }
             }
             
             Spacer()
         }
         .padding()
-        .frame(minWidth: 600, minHeight: 500)
+        .frame(minWidth: 800, minHeight: 700)
         .fileImporter(
             isPresented: $showFilePicker,
             allowedContentTypes: [UTType.pdf],
