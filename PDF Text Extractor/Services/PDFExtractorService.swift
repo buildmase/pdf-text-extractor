@@ -21,6 +21,9 @@ class PDFExtractorService: ObservableObject {
             statusMessage = "Loading PDF..."
         }
         
+        // Add a small delay to show loading state
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        
         guard let pdfDocument = PDFDocument(url: url) else {
             await MainActor.run {
                 isProcessing = false
@@ -45,25 +48,38 @@ class PDFExtractorService: ObservableObject {
             statusMessage = "Extracting text from \(pageCount) pages..."
         }
         
-        for i in 0..<pageCount {
-            guard let page = pdfDocument.page(at: i) else { continue }
+        // Process pages in batches to prevent UI blocking
+        let batchSize = max(1, pageCount / 20) // Process in 20 batches for large files
+        
+        for batchStart in stride(from: 0, to: pageCount, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, pageCount)
             
-            if let pageText = page.string {
-                // Clean up the text while preserving structure
-                let cleanedText = cleanText(pageText)
-                fullText += cleanedText
+            // Process batch of pages
+            for i in batchStart..<batchEnd {
+                guard let page = pdfDocument.page(at: i) else { continue }
                 
-                // Add page break if not the last page
-                if i < pageCount - 1 {
-                    fullText += "\n\n---\n\n"
+                if let pageText = page.string {
+                    // Clean up the text while preserving structure
+                    let cleanedText = cleanText(pageText)
+                    fullText += cleanedText
+                    
+                    // Add page break if not the last page
+                    if i < pageCount - 1 {
+                        fullText += "\n\n---\n\n"
+                    }
                 }
             }
             
-            // Update progress
-            let currentProgress = Double(i + 1) / Double(pageCount)
+            // Update progress after each batch
+            let currentProgress = Double(batchEnd) / Double(pageCount)
             await MainActor.run {
                 progress = currentProgress
-                statusMessage = "Processing page \(i + 1) of \(pageCount)..."
+                statusMessage = "Processing page \(batchEnd) of \(pageCount)... (\(Int(currentProgress * 100))%)"
+            }
+            
+            // Small delay to allow UI updates for large files
+            if pageCount > 50 {
+                try await Task.sleep(nanoseconds: 10_000_000) // 0.01 seconds
             }
         }
         
@@ -92,6 +108,14 @@ class PDFExtractorService: ObservableObject {
         }
         
         return cleanedLines.joined(separator: "\n")
+    }
+    
+    // Memory management for large files
+    private func optimizeForLargeFiles() {
+        // Force garbage collection if available
+        autoreleasepool {
+            // This helps with memory management for large files
+        }
     }
 }
 

@@ -87,7 +87,7 @@ struct ContentView: View {
             
             // Extract button and progress
             if selectedPDF != nil {
-                VStack(spacing: 10) {
+                VStack(spacing: 15) {
                     Button("Extract Text") {
                         Task {
                             await extractTextFromPDF()
@@ -95,15 +95,38 @@ struct ContentView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(pdfService.isProcessing)
+                    .controlSize(.large)
                     
                     if pdfService.isProcessing {
-                        VStack(spacing: 8) {
-                            ProgressView(value: pdfService.progress)
-                                .frame(width: 200)
+                        VStack(spacing: 12) {
+                            // Enhanced progress bar
+                            VStack(spacing: 8) {
+                                HStack {
+                                    Text("Progress")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Text("\(Int(pdfService.progress * 100))%")
+                                        .font(.headline)
+                                        .foregroundColor(.blue)
+                                }
+                                
+                                ProgressView(value: pdfService.progress)
+                                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                                    .frame(height: 8)
+                                    .scaleEffect(x: 1, y: 2, anchor: .center)
+                            }
+                            .padding()
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(12)
+                            
                             Text(pdfService.statusMessage)
-                                .font(.caption)
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 400)
                         }
+                        .frame(maxWidth: 500)
                     }
                 }
             }
@@ -212,6 +235,21 @@ struct ContentView: View {
     
     private func extractTextFromPDF() async {
         guard let pdfURL = selectedPDF else { return }
+        
+        // Check file size and warn user if it's very large
+        do {
+            let fileAttributes = try FileManager.default.attributesOfItem(atPath: pdfURL.path)
+            if let fileSize = fileAttributes[.size] as? Int64 {
+                let fileSizeMB = Double(fileSize) / (1024 * 1024)
+                if fileSizeMB > 50 {
+                    await MainActor.run {
+                        self.pdfService.statusMessage = "Large file detected (\(String(format: "%.1f", fileSizeMB)) MB). This may take a while..."
+                    }
+                }
+            }
+        } catch {
+            // Continue if we can't get file size
+        }
         
         do {
             let rawText = try await pdfService.extractText(from: pdfURL)
