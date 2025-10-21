@@ -8,10 +8,11 @@
 import SwiftUI
 import PDFKit
 import UniformTypeIdentifiers
+import Vision
 
 struct ContentView: View {
     @StateObject private var pdfService = PDFExtractorService()
-    @State private var selectedPDF: URL?
+    @State private var selectedFile: URL?
     @State private var extractedText: String = ""
     @State private var showFilePicker = false
     @State private var showSavePanel = false
@@ -20,16 +21,17 @@ struct ContentView: View {
     @State private var characterCount = 0
     @State private var showStats = false
     @State private var isDarkMode = true
+    @State private var fileType: String = ""
     
     var body: some View {
         VStack(spacing: 25) {
             // Header with theme toggle
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("PDF Text Extractor")
+                    Text("Text Extractor")
                         .font(.largeTitle)
                         .fontWeight(.bold)
-                    Text("Extract text from PDF documents")
+                    Text("Extract text from PDFs and images")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -62,7 +64,7 @@ struct ContentView: View {
             
             // Drag and drop area
             VStack(spacing: 20) {
-                if selectedPDF == nil {
+                if selectedFile == nil {
                     // Enhanced drag and drop zone
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(style: StrokeStyle(lineWidth: 3, dash: [12, 8]))
@@ -88,13 +90,13 @@ struct ContentView: View {
                                 .animation(.easeInOut(duration: 0.3), value: isDragOver)
                                 
                                 VStack(spacing: 8) {
-                                    Text(isDragOver ? "Drop PDF Here!" : "Drag & Drop PDF Here")
+                                    Text(isDragOver ? "Drop File Here!" : "Drag & Drop Files Here")
                                         .font(.title2)
                                         .fontWeight(.semibold)
                                         .foregroundColor(isDragOver ? .green : .primary)
                                         .animation(.easeInOut(duration: 0.3), value: isDragOver)
                                     
-                                    Text("Supports all PDF formats")
+                                    Text("Supports PDF, PNG, JPEG, TIFF, and more")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -103,7 +105,7 @@ struct ContentView: View {
                                     Text("or")
                                         .foregroundColor(.secondary)
                                     
-                                    Button("Choose PDF File") {
+                                    Button("Choose File") {
                                         showFilePicker = true
                                     }
                                     .buttonStyle(.borderedProminent)
@@ -111,7 +113,7 @@ struct ContentView: View {
                                 }
                             }
                         )
-                        .onDrop(of: [UTType.pdf], isTargeted: $isDragOver) { providers in
+                        .onDrop(of: [UTType.pdf, UTType.png, UTType.jpeg, UTType.tiff, UTType.image], isTargeted: $isDragOver) { providers in
                             handleDrop(providers: providers)
                         }
                 } else {
@@ -129,11 +131,11 @@ struct ContentView: View {
                             }
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("PDF Selected")
+                                Text("\(fileType) Selected")
                                     .font(.headline)
                                     .foregroundColor(.primary)
                                 
-                                Text(selectedPDF!.lastPathComponent)
+                                Text(selectedFile!.lastPathComponent)
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
@@ -170,12 +172,12 @@ struct ContentView: View {
             }
             
             // Extract button and progress
-            if selectedPDF != nil {
+            if selectedFile != nil {
                 VStack(spacing: 20) {
                     HStack(spacing: 12) {
                         Button(action: {
                             Task {
-                                await extractTextFromPDF()
+                                await extractTextFromFile()
                             }
                         }) {
                             HStack(spacing: 8) {
@@ -365,14 +367,15 @@ struct ContentView: View {
         }
         .fileImporter(
             isPresented: $showFilePicker,
-            allowedContentTypes: [UTType.pdf],
+            allowedContentTypes: [UTType.pdf, UTType.png, UTType.jpeg, UTType.tiff, UTType.image],
             allowsMultipleSelection: false
         ) { result in
             switch result {
             case .success(let urls):
                 if let url = urls.first {
-                    selectedPDF = url
-                    pdfService.statusMessage = "PDF selected. Click 'Extract Text' to begin."
+                    selectedFile = url
+                    fileType = getFileType(url: url)
+                    pdfService.statusMessage = "\(fileType) selected. Click 'Extract Text' to begin."
                     extractedText = "" // Clear previous text
                 }
             case .failure(let error):
@@ -383,7 +386,7 @@ struct ContentView: View {
             isPresented: $showSavePanel,
             document: MarkdownDocument(text: formatTextForExport()),
             contentType: .plainText,
-            defaultFilename: selectedPDF?.deletingPathExtension().lastPathComponent ?? "extracted_text"
+            defaultFilename: selectedFile?.deletingPathExtension().lastPathComponent ?? "extracted_text"
         ) { result in
             switch result {
             case .success:
@@ -408,7 +411,7 @@ struct ContentView: View {
                 
                 if let url = item as? URL {
                     DispatchQueue.main.async {
-                        self.selectedPDF = url
+                        self.selectedFile = url
                         self.pdfService.statusMessage = "PDF selected. Click 'Extract Text' to begin."
                         self.extractedText = "" // Clear previous text
                     }
@@ -419,12 +422,42 @@ struct ContentView: View {
         return false
     }
     
-    private func extractTextFromPDF() async {
-        guard let pdfURL = selectedPDF else { return }
+    private func getFileType(url: URL) -> String {
+        let pathExtension = url.pathExtension.lowercased()
+        switch pathExtension {
+        case "pdf":
+            return "PDF"
+        case "png":
+            return "PNG Image"
+        case "jpg", "jpeg":
+            return "JPEG Image"
+        case "tiff", "tif":
+            return "TIFF Image"
+        case "bmp":
+            return "BMP Image"
+        case "gif":
+            return "GIF Image"
+        default:
+            return "Image"
+        }
+    }
+    
+    private func extractTextFromFile() async {
+        guard let fileURL = selectedFile else { return }
         
+        let pathExtension = fileURL.pathExtension.lowercased()
+        
+        if pathExtension == "pdf" {
+            await extractTextFromPDF(fileURL: fileURL)
+        } else {
+            await extractTextFromImage(fileURL: fileURL)
+        }
+    }
+    
+    private func extractTextFromPDF(fileURL: URL) async {
         // Check file size and warn user if it's very large
         do {
-            let fileAttributes = try FileManager.default.attributesOfItem(atPath: pdfURL.path)
+            let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
             if let fileSize = fileAttributes[.size] as? Int64 {
                 let fileSizeMB = Double(fileSize) / (1024 * 1024)
                 if fileSizeMB > 50 {
@@ -438,8 +471,8 @@ struct ContentView: View {
         }
         
         do {
-            let rawText = try await pdfService.extractText(from: pdfURL)
-            let pdfName = pdfURL.deletingPathExtension().lastPathComponent
+            let rawText = try await pdfService.extractText(from: fileURL)
+            let pdfName = fileURL.deletingPathExtension().lastPathComponent
             let formattedText = MarkdownFormatter.formatText(rawText, from: pdfName)
             
             await MainActor.run {
@@ -454,16 +487,99 @@ struct ContentView: View {
         }
     }
     
+    private func extractTextFromImage(fileURL: URL) async {
+        await MainActor.run {
+            pdfService.isProcessing = true
+            pdfService.progress = 0.0
+            pdfService.statusMessage = "Processing image with OCR..."
+        }
+        
+        do {
+            // Load the image
+            guard let imageData = try? Data(contentsOf: fileURL),
+                  let image = NSImage(data: imageData) else {
+                await MainActor.run {
+                    pdfService.isProcessing = false
+                    pdfService.statusMessage = "Error: Could not load image file"
+                }
+                return
+            }
+            
+            // Convert NSImage to CGImage for OCR
+            guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                await MainActor.run {
+                    pdfService.isProcessing = false
+                    pdfService.statusMessage = "Error: Could not process image for OCR"
+                }
+                return
+            }
+            
+            // Create Vision request for text recognition
+            let request = VNRecognizeTextRequest { request, error in
+                if let error = error {
+                    Task { @MainActor in
+                        self.pdfService.isProcessing = false
+                        self.pdfService.statusMessage = "OCR Error: \(error.localizedDescription)"
+                    }
+                    return
+                }
+                
+                guard let observations = request.results as? [VNRecognizedTextObservation] else {
+                    Task { @MainActor in
+                        self.pdfService.isProcessing = false
+                        self.pdfService.statusMessage = "No text found in image"
+                    }
+                    return
+                }
+                
+                // Extract text from observations
+                let extractedText = observations.compactMap { observation in
+                    observation.topCandidates(1).first?.string
+                }.joined(separator: "\n")
+                
+                Task { @MainActor in
+                    self.pdfService.isProcessing = false
+                    self.pdfService.progress = 1.0
+                    
+                    if extractedText.isEmpty {
+                        self.pdfService.statusMessage = "No text found in image"
+                    } else {
+                        let formattedText = MarkdownFormatter.formatText(extractedText, from: fileURL.deletingPathExtension().lastPathComponent)
+                        self.extractedText = formattedText
+                        self.wordCount = MarkdownFormatter.getWordCount(formattedText)
+                        self.characterCount = MarkdownFormatter.getCharacterCount(formattedText)
+                        self.pdfService.statusMessage = "Text extracted successfully from image!"
+                    }
+                }
+            }
+            
+            // Configure OCR settings
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            
+            // Perform OCR
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            try handler.perform([request])
+            
+        } catch {
+            await MainActor.run {
+                pdfService.isProcessing = false
+                pdfService.statusMessage = "Error processing image: \(error.localizedDescription)"
+            }
+        }
+    }
+    
     private func formatTextForExport() -> String {
         return extractedText
     }
     
     private func resetApp() {
-        selectedPDF = nil
+        selectedFile = nil
         extractedText = ""
         wordCount = 0
         characterCount = 0
-        pdfService.statusMessage = "Select a PDF file to extract text"
+        fileType = ""
+        pdfService.statusMessage = "Select a file to extract text"
     }
 }
 
