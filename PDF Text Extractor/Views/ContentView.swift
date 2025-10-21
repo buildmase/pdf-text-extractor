@@ -36,13 +36,28 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                Button(action: { isDarkMode.toggle() }) {
-                    Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
-                        .font(.title2)
-                        .foregroundColor(.primary)
+                Button(action: { 
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isDarkMode.toggle()
+                        // Apply the theme change
+                        if isDarkMode {
+                            NSApp.appearance = NSAppearance(named: .darkAqua)
+                        } else {
+                            NSApp.appearance = NSAppearance(named: .aqua)
+                        }
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
+                            .font(.title2)
+                            .foregroundColor(.primary)
+                        Text(isDarkMode ? "Light" : "Dark")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
                 }
                 .buttonStyle(.bordered)
-                .help("Toggle theme")
+                .help(isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode")
             }
             
             // Drag and drop area
@@ -340,6 +355,14 @@ struct ContentView: View {
         }
         .padding(24)
         .frame(minWidth: 900, minHeight: 750)
+        .onAppear {
+            // Set initial theme
+            if isDarkMode {
+                NSApp.appearance = NSAppearance(named: .darkAqua)
+            } else {
+                NSApp.appearance = NSAppearance(named: .aqua)
+            }
+        }
         .fileImporter(
             isPresented: $showFilePicker,
             allowedContentTypes: [UTType.pdf],
