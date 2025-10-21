@@ -18,84 +18,173 @@ struct ContentView: View {
     @State private var isDragOver = false
     @State private var wordCount = 0
     @State private var characterCount = 0
+    @State private var showStats = false
+    @State private var isDarkMode = true
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("PDF Text Extractor")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+        VStack(spacing: 25) {
+            // Header with theme toggle
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("PDF Text Extractor")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    Text("Extract text from PDF documents")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Button(action: { isDarkMode.toggle() }) {
+                    Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
+                        .font(.title2)
+                        .foregroundColor(.primary)
+                }
+                .buttonStyle(.bordered)
+                .help("Toggle theme")
+            }
             
             // Drag and drop area
             VStack(spacing: 20) {
                 if selectedPDF == nil {
-                    // Drag and drop zone
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
+                    // Enhanced drag and drop zone
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(style: StrokeStyle(lineWidth: 3, dash: [12, 8]))
                         .foregroundColor(isDragOver ? .green : .blue)
                         .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(isDragOver ? Color.green.opacity(0.1) : Color.clear)
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(isDragOver ? Color.green.opacity(0.15) : Color.blue.opacity(0.05))
                         )
-                        .frame(height: 200)
+                        .frame(height: 220)
                         .overlay(
-                            VStack(spacing: 15) {
-                                Image(systemName: isDragOver ? "doc.badge.plus" : "doc.badge.plus")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(isDragOver ? .green : .blue)
-                                    .animation(.easeInOut(duration: 0.2), value: isDragOver)
-                                
-                                Text(isDragOver ? "Drop PDF Here" : "Drag & Drop PDF Here")
-                                    .font(.title2)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(isDragOver ? .green : .primary)
-                                    .animation(.easeInOut(duration: 0.2), value: isDragOver)
-                                
-                                Text("or")
-                                    .foregroundColor(.secondary)
-                                
-                                Button("Choose PDF File") {
-                                    showFilePicker = true
+                            VStack(spacing: 20) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isDragOver ? Color.green.opacity(0.2) : Color.blue.opacity(0.1))
+                                        .frame(width: 80, height: 80)
+                                    
+                                    Image(systemName: isDragOver ? "doc.badge.plus" : "doc.badge.plus")
+                                        .font(.system(size: 40))
+                                        .foregroundColor(isDragOver ? .green : .blue)
+                                        .animation(.easeInOut(duration: 0.3), value: isDragOver)
                                 }
-                                .buttonStyle(.bordered)
+                                .scaleEffect(isDragOver ? 1.1 : 1.0)
+                                .animation(.easeInOut(duration: 0.3), value: isDragOver)
+                                
+                                VStack(spacing: 8) {
+                                    Text(isDragOver ? "Drop PDF Here!" : "Drag & Drop PDF Here")
+                                        .font(.title2)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(isDragOver ? .green : .primary)
+                                        .animation(.easeInOut(duration: 0.3), value: isDragOver)
+                                    
+                                    Text("Supports all PDF formats")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                HStack(spacing: 12) {
+                                    Text("or")
+                                        .foregroundColor(.secondary)
+                                    
+                                    Button("Choose PDF File") {
+                                        showFilePicker = true
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.regular)
+                                }
                             }
                         )
                         .onDrop(of: [UTType.pdf], isTargeted: $isDragOver) { providers in
                             handleDrop(providers: providers)
                         }
                 } else {
-                    // Selected file display
-                    VStack(spacing: 15) {
-                        Image(systemName: "doc.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(.green)
-                        
-                        Text("Selected: \(selectedPDF!.lastPathComponent)")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-                        
-                        Button("Choose Different PDF") {
-                            showFilePicker = true
+                    // Enhanced selected file display
+                    VStack(spacing: 16) {
+                        HStack {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.green.opacity(0.2))
+                                    .frame(width: 50, height: 50)
+                                
+                                Image(systemName: "doc.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.green)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("PDF Selected")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                
+                                Text(selectedPDF!.lastPathComponent)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            
+                            Spacer()
+                            
+                            Button("Change") {
+                                showFilePicker = true
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.bordered)
+                        
+                        // File info
+                        HStack {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.blue)
+                            Text("Ready to extract text")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
                     }
-                    .padding()
-                    .background(Color.green.opacity(0.1))
-                    .cornerRadius(12)
+                    .padding(16)
+                    .background(Color.green.opacity(0.08))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                    )
                 }
             }
             
             // Extract button and progress
             if selectedPDF != nil {
-                VStack(spacing: 15) {
-                    Button("Extract Text") {
-                        Task {
-                            await extractTextFromPDF()
+                VStack(spacing: 20) {
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            Task {
+                                await extractTextFromPDF()
+                            }
+                        }) {
+                            HStack(spacing: 8) {
+                                if pdfService.isProcessing {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "text.magnifyingglass")
+                                }
+                                Text(pdfService.isProcessing ? "Extracting..." : "Extract Text")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(pdfService.isProcessing)
+                        .controlSize(.large)
+                        
+                        if !extractedText.isEmpty {
+                            Button("Show Stats") {
+                                showStats.toggle()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.regular)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(pdfService.isProcessing)
-                    .controlSize(.large)
                     
                     if pdfService.isProcessing {
                         VStack(spacing: 12) {
@@ -137,46 +226,120 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .frame(minHeight: 20)
             
-            // Extracted text area
+            // Enhanced extracted text area
             if !extractedText.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header with stats and actions
                     HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Extracted Text:")
-                                .font(.headline)
-                            Text("\(wordCount) words • \(characterCount) characters")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "doc.text")
+                                    .foregroundColor(.blue)
+                                Text("Extracted Text")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                            }
+                            
+                            HStack(spacing: 16) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "textformat.abc")
+                                        .foregroundColor(.secondary)
+                                    Text("\(wordCount) words")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                HStack(spacing: 4) {
+                                    Image(systemName: "character")
+                                        .foregroundColor(.secondary)
+                                    Text("\(characterCount) characters")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                if showStats {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "clock")
+                                            .foregroundColor(.secondary)
+                                        Text("~\(Int(Double(wordCount) / 200)) min read")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
                         }
+                        
                         Spacer()
-                        HStack(spacing: 10) {
+                        
+                        HStack(spacing: 8) {
                             Button("Save as Markdown") {
                                 showSavePanel = true
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.regular)
                             
-                            Button("Extract Another PDF") {
+                            Button("New PDF") {
                                 resetApp()
                             }
                             .buttonStyle(.bordered)
+                            .controlSize(.regular)
                         }
                     }
                     
+                    // Enhanced text display
                     ScrollView {
                         Text(extractedText)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(8)
+                            .padding(20)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.gray.opacity(0.08))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
+                            .textSelection(.enabled)
                     }
                     .frame(maxHeight: 500)
+                    .overlay(
+                        // Scroll indicator
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Image(systemName: "arrow.down")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .opacity(0.6)
+                                Spacer()
+                            }
+                            .padding(.bottom, 8)
+                        }
+                    )
                 }
             }
             
-            Spacer()
+            // Footer
+            HStack {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Ready to extract")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Text("PDF Text Extractor v1.0")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 10)
         }
-        .padding()
-        .frame(minWidth: 800, minHeight: 700)
+        .padding(24)
+        .frame(minWidth: 900, minHeight: 750)
         .fileImporter(
             isPresented: $showFilePicker,
             allowedContentTypes: [UTType.pdf],
